@@ -2,4 +2,5 @@
 
 ### Doc folder
 
-The doc directory contains the report or presentation files. It can have subfolders.  
+proj1-philosophy.Rmd - Rmarkdown file for project analysis
+proj-philosophy.html - Knitted html of the project

@@ -2,5 +2,4 @@
 
 ### Code dev/lib Folder
 
-The lib directory contains various files with function definitions and computation codes for your data analysis. 
-
+speechFuncs.R - Contains a word.count function to count the words in the sentence.

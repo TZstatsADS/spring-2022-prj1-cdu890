@@ -1,0 +1,348 @@
+---
+title: "Sentiments of Schools of Philosophy"
+author: "Christie Du"
+date: "1/27/2022"
+output: html_document
+---
+
+## Step 0: Install and load necessary packages.
+
+```{r, message=FALSE, warning=FALSE}
+packages.used=c("rvest", "tibble", "qdap", 
+                "sentimentr", "gplots", "dplyr",
+                "tm", "syuzhet", "factoextra", 
+                "beeswarm", "scales", "RColorBrewer",
+                "RANN", "tm", "readtext",
+                "kableExtra","ggiraphExtra", "gridExtra",
+                "ggpubr", "DT")
+
+# check packages that need to be installed.
+packages.needed=setdiff(packages.used, 
+                        intersect(installed.packages()[,1], 
+                                  packages.used))
+# install additional packages
+if(length(packages.needed)>0){
+  install.packages(packages.needed, dependencies = TRUE)
+}
+
+# load packages
+library("rvest")
+library("tibble")
+# You may need to run
+# sudo ln -f -s $(/usr/libexec/java_home)/jre/lib/server/libjvm.dylib /usr/local/lib
+# in order to load qdap
+library("qdap")
+library("sentimentr")
+library("gplots")
+library("dplyr")
+library("tm")
+library("syuzhet")
+library("factoextra")
+library("beeswarm")
+library("scales")
+library("RColorBrewer")
+library("RANN")
+library("tm")
+library("readtext")
+library("stringr")
+library("kableExtra")
+library("ggiraphExtra")
+library("gridExtra")
+library("ggpubr")
+library("DT")
+
+source("../lib/speechFuncs.R")
+```
+
+This notebook was prepared with the following environmental settings.
+
+```{r}
+print(R.version)
+```
+
+## Step 1: Data Processing + Sentiment Analysis
+
+Philosophy text data was downloaded from https://www.kaggle.com/kouroshalizadeh/history-of-philosophy.
+
+```{r, eval=FALSE}
+phil_texts = read.csv("../data/philosophy_data.csv", stringsAsFactors = FALSE)
+```
+
+### Sentiment Analysis
+
+While we might think of philosophy readings as more emotionless than other texts, it is interesting to observe the sentiments being expressed in different schools of philosophical texts. More specifically, we can ask: do texts under the same school share similar emotions? Are certain schools more likely to share emotions across writings?
+
+For example, the Analytic school makes use of formal logic and mathematics to intentionally avoid confusion due to word choice. By design, the style is meant to be less emotional and proof-based, so we could hypothesize that Analytic writings are generally less emotional. On the other hand, Feminism addresses topics related to gender and sex but does not necessarily define a specific writing style, so we might hypothesize that Feminism may not be as emotionally consistent across writings.
+
+To answer these questions, we needed to assign emotions to the texts in philosophy dataset. For each sentence in the corpus, we performed sentiment analysis with [NRC sentiment lexicon](http://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm). Each emotions for each sentence was normalized by the number of words in the sentence.
+
+```{r, eval=FALSE}
+sentence.list=NULL
+cols = c('title','author', 'school', 'sentence_str', 'original_publication_date')
+
+for(i in 1:nrow(phil_texts)){
+
+  sentences=str_remove_all(phil_texts$tokenized_txt[i], "[\\[\\],']")
+
+  if(length(sentences)>0){
+    emotions=get_nrc_sentiment(sentences)
+    word.count=word_count(sentences)
+    # colnames(emotions)=paste0("emo.", colnames(emotions))
+    # in case the word counts are zeros?
+    emotions=emotions/(word.count+0.01)
+    sentence.list4=rbind(sentence.list4, 
+                        cbind(phil_texts[i,cols],
+                              sentences=as.character(sentences), 
+                              word.count,
+                              emotions
+                              )
+    )
+  }
+}
+```
+
+Sentiment analysis of all sentences in the corpus took approximately ~14 hours. The sentiment data was saved in the outputs folder.
+
+```{r, eval=FALSE}
+write.csv(sentence.list, "../output/phil_sentiments.csv", row.names=TRUE, col.names = TRUE)
+```
+
+### Dominant Emotions in Each Sentence
+
+```{r}
+phil_sentiments = read.csv("../output/phil_sentiments.csv", row.names = 1, stringsAsFactors = FALSE)
+```
+
+Not all sentences had any emotions attached. A new feature called 'no_emotion' was introduced to label sentences with no emotions. Additionally, each sentence was labeled with a dominant emotion - the emotion that had the highest score. This is captured with the 'dom_emotion' feature.
+
+```{r}
+phil_sentiments = phil_sentiments %>%
+  mutate(no_emotion = if_else((anger==0)&(anticipation==0)&(disgust==0)&(fear==0)&(joy==0)&(sadness==0)&(surprise==0)&(trust==0),
+                              1, 0)
+         ) %>%
+  mutate(neutral = if_else(no_emotion&(negative==0)&(positive==0), 1, 0)
+         ) %>%
+  mutate(dom_emotion = apply(.[c((8:15),18)], 1, function(x) names(x)[which.max(x)])
+         )
+phil_sentiments = phil_sentiments[!is.na(phil_sentiments$word.count),]
+```
+
+### Observing emotional and unemotional sentences
+
+To sanity check and ensure that emotional sentences make sense, we can observe a few emotionally charged sentences. The first is from Marx's *Communist Manifesto*, and the second is from Davis' *Women, Race, and Class*.
+
+```{r}
+text.df=phil_sentiments%>%
+  filter(title=="The Communist Manifesto", word.count>4)%>%
+  select(sentence_str, anger:trust)
+text.df=as.data.frame(text.df)
+unique(as.character(text.df$sentence_str[apply(text.df[,-1], 2, which.max)]))
+```
+
+```{r}
+text.df=phil_sentiments%>%
+  filter(title=="Women, Race, And Class", word.count>4)%>%
+  select(sentence_str, anger:trust)
+text.df=as.data.frame(text.df)
+unique(as.character(text.df$sentence_str[apply(text.df[,-1], 2, which.max)]))
+```
+
+We can also observe some unemotional sentences. This text is from Wittgenstein's *On Certainty*. Wittgenstein is an Analytic philosopher who wrote in proofs and formal logic.
+
+```{r}
+text.df=phil_sentiments%>%
+  filter(title=="On Certainty", word.count>4)%>%
+  select(sentence_str, anger:trust)
+text.df=as.data.frame(text.df)
+unique(as.character(text.df$sentence_str[apply(text.df[,-1], 2, which.min)]))
+```
+
+## Step 2: Sentiment Clustering by Title
+
+To convert the data into numerical data that can be clustered, we computed the percentage of each emotion in each title using the 'dom_emotion" feature. As stated above, each sentence was classified as its dominant emotion, and a proportion of each emotion was computed across the entire text.
+
+```{r}
+title_sentiments = NULL
+order = names(phil_sentiments[c((8:15),18)])
+titles = unique(phil_sentiments$title)
+author_vec = c()
+school_vec = c()
+for (t in titles){
+  title_df = phil_sentiments[phil_sentiments$title==t,]
+  author_vec = c(author_vec, title_df$author[1])
+  school_vec = c(school_vec, title_df$school[1])
+  
+  percentages = prop.table(table(factor(title_df$dom_emotion,
+                                        levels=order)))
+  title_sentiments = rbind(title_sentiments, 
+                           percentages)
+}
+title_sentiments = data.frame(cbind(title = titles,
+                         author = author_vec,
+                         school = school_vec,
+                         title_sentiments))
+
+rownames(title_sentiments)=as.character((title_sentiments[,1]))
+cols.num <- colnames(title_sentiments)[4:12]
+title_sentiments[cols.num] <- sapply(title_sentiments[cols.num],as.numeric)
+```
+
+### Kmeans Clustering
+
+The clustering algorithm chosen was kmeans, and the number of clusters was chosen using the Silhouette Plot. 
+
+```{r}
+fviz_nbclust(title_sentiments[,4:12], kmeans, method = "silhouette", k.max = 24) + theme_minimal() + ggtitle("The Silhouette Plot")
+```
+
+```{r}
+set.seed(9)
+km.res=kmeans(title_sentiments[,4:12], iter.max=200,
+              centers=6)
+fviz_cluster(km.res, 
+             stand=F, repel= TRUE,
+             data = title_sentiments[,4:12], xaxt="n",
+             labelsize=7,
+             show.clust.cent=FALSE)
+```
+
+Not all texts are written on the plot for visibility purposes. A comprehensive list of all titles are their cluster assignments is in the Appendix.
+
+A quick look at the clusters shows that many of the Analytic texts are in Cluster 5.
+
+## Part 3: Characteristics of Title Clusters
+
+We now want to understand the characteristics of each cluster. For each cluster, we took the mean of each emotion.
+
+```{r}
+as.data.frame(title_sentiments[,4:12]) %>% 
+  mutate(Cluster = km.res$cluster) %>% 
+  group_by(Cluster) %>% 
+  summarise_all("mean") %>%
+  kable() %>%
+  kable_styling("striped")
+```
+
+Next, we made a radar plot for each cluster. The 'surprise' emotion was removed because it did not vary much across texts and had a low contribution to the texts.
+
+```{r}
+cluster_pos <- as.data.frame(km.res$cluster) %>% rownames_to_column()
+colnames(cluster_pos) <- c("title","cluster")
+
+title_clusters <- inner_join(cluster_pos, title_sentiments[c(1,4:9,11:12)])
+
+ggRadar(title_clusters[-1], 
+        aes(group = cluster), 
+        rescale = FALSE, 
+        legend.position = "none", 
+        size = 1, interactive = FALSE, 
+        use.label = TRUE) + 
+  facet_wrap(~cluster) + scale_y_discrete(breaks = NULL) + # don't show ticks
+  theme(axis.text.x = element_text(size = 7)) + 
+  scale_fill_manual(values = rep("#1c6193", nrow(title_clusters))) +
+  scale_color_manual(values = rep("#1c6193", nrow(title_clusters))) +
+  ggtitle("Philosophy Emotions Attributes")
+```
+
+Observations about each cluster:
+
+1. Cluster 1 is characterized by high anger and fear.
+2. Cluster 2 is close to average for most emotions.
+3. Cluster 3 characterized by somewhat high trust, but is not too emotional overall.
+4. Cluster 4 is close to average for most emotions but is less trusting than cluster 2. 
+5. Cluster 5 is very emotionless.
+6. Cluster 6 is characterized by high trust and joy.
+
+Box-plots of emotions for each cluster. Sadness and disgust were removed because they didn't vary as much between clusters.
+
+```{r}
+anger <- ggplot(title_clusters, aes(group = cluster, x = cluster, y = anger)) + 
+        geom_boxplot(aes(fill = as.factor(cluster)))
+antic <- ggplot(title_clusters, aes(group = cluster, x = cluster, y = anticipation)) + 
+        geom_boxplot(aes(fill = as.factor(cluster)))
+fear <- ggplot(title_clusters, aes(group = cluster, x = cluster, y = fear)) + 
+        geom_boxplot(aes(fill = as.factor(cluster)))
+joy <- ggplot(title_clusters, aes(group = cluster, x = cluster, y = joy)) + 
+        geom_boxplot(aes(fill = as.factor(cluster)))
+trust <- ggplot(title_clusters, aes(group = cluster, x = cluster, y = trust)) + 
+        geom_boxplot(aes(fill = as.factor(cluster)))
+none <- ggplot(title_clusters, aes(group = cluster, x = cluster, y = no_emotion)) + 
+        geom_boxplot(aes(fill = as.factor(cluster)))
+
+ggarrange(anger, antic, fear, joy, trust, none, 
+          ncol = 3, nrow = 2,
+          legend="none")
+```
+
+Once again, we can observe that Cluster 1 is notably more angry than the rest, and Cluster 5 is much less emotionless than the rest.
+
+## Part 4: Purity of Each School
+
+```{r}
+title_clusters$school = title_sentiments$school
+```
+
+To determine if schools had consistent emotions, the purity score of each school was computed. For each school, we assigned a "correct" cluster based on the majority. For example, in the Analytic school, there were 11 texts. 7 of those texts were in cluster 5, so the assignment for Analytic was cluster 5. Purity is computed as (no. correct / total) * sqrt(total). The reason the score was normalized by the square root of total was because to award schools with many texts. For example, Aristotle only had 1 text, so of course the purity was 1. If we did not normalize by the square root of the total, Aristotle would have a higher purity than Analytic with 11 texts, which doesn't seem right.
+
+```{r}
+title_purity = title_clusters %>%
+  count(school, cluster, sort = TRUE) %>%
+  group_by(school) %>%
+  summarise(cluster = cluster[1], count = n[1], total = sum(n)) %>%
+  mutate(purity = (count/total)*sqrt(total)) %>%
+  arrange(desc(purity))
+datatable(title_purity,
+          options = list(pageLength=20))
+```
+
+## Conclusions
+
+Based on purity scores, German Idealism, Analytic, and Nietzsche has the most consistent emotions across texts. German Idealism is a movement made up of works by authors that communicated regularly are largely from Germany in the late 1700s and early 1800s, and many if not all German Idealists are greatly influenced by the works of just two authors, Kant and Hegel. Analytic philosophy is mostly written in a proof-based style, and Nietzsche was just one author, so it makes sense that all of his works have similar sentiments. On the other hand, Empiricism, Rationalism, Stoicism, Communism, and Feminism seem to have more of a variety of emotions. German Idealism and Analytic are more focused philosophical movements from specific times and places, whereas Rationalism, Empiricism, Feminism, and Communism are broader both in terms of geography and scope. 
+
+## Appendix
+
+### Texts and Cluster Assignments
+
+```{r}
+title_assignments = title_clusters[,c('title','school','cluster')] %>%
+  arrange(cluster)
+datatable(title_assignments,
+          options = list(pageLength=10))
+```
+
+
+### Clustering by School
+
+```{r}
+school_sentiments = NULL
+schools = unique(phil_sentiments$school)
+order = names(phil_sentiments[c((8:15),18)])
+for (s in schools){
+  school_df = phil_sentiments[phil_sentiments$school==s,]
+  percentages = prop.table(table(factor(school_df$dom_emotion,
+                                        levels=order)))
+  school_sentiments = rbind(school_sentiments, 
+                           percentages)
+}
+school_sentiments = data.frame(cbind(school = schools,
+                         school_sentiments))
+rownames(school_sentiments)=as.character((school_sentiments[,1]))
+cols.num <- colnames(school_sentiments)[2:10]
+school_sentiments[cols.num] <- sapply(school_sentiments[cols.num],as.numeric)
+```
+
+```{r}
+fviz_nbclust(school_sentiments[,2:10], kmeans, method = "silhouette", k.max = 6) + theme_minimal() + ggtitle("The Silhouette Plot")
+```
+
+
+
+```{r}
+km.res=kmeans(school_sentiments[,2:10], iter.max=500,
+              centers=3)
+fviz_cluster(km.res, 
+             stand=F, repel= TRUE,
+             data = school_sentiments[,2:10], xaxt="n",
+             show.clust.cent=FALSE)
+```
+

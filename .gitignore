@@ -1,0 +1,5 @@
+
+.Rhistory
+.DS_Store
+data/philosophy_data.csv
+output/phil_sentiments.csv

@@ -7,12 +7,12 @@
 ### [Project Description](doc/)
 This is the first and only *individual* (as opposed to *team*) project this semester. 
 
-Term: Fall 2021
+Term: Spring 2022
 
-+ Projec title: Lorem ipsum dolor sit amet
-+ This project is conducted by [your name]
++ Project title: Consistency of Emotions Within Philosophy Schools
++ This project is conducted by Christie Du (cd3250)
 
-+ Project summary: [a short summary] Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
++ Project summary: While we might think of philosophy readings as more emotionless than other texts, it is interesting to observe the sentiments being expressed in different schools of philosophical texts. More specifically, we can ask: do texts under the same school share similar emotions? Are certain schools more likely to share emotions across writings? Using sentiment analysis and clustering, we observed that German Idealism, Analytic, and Nietzsche are the schools with the most consistent emotions across different texts while Communism and Feminism were the least consistent in emotions.  
 
 Following [suggestions](http://nicercode.github.io/blog/2013-04-05-projects/) by [RICH FITZJOHN](http://nicercode.github.io/about/#Team) (@richfitz). This folder is orgarnized as follows.
 
