@@ -1,5 +1,5 @@
 ---
-title: "Sentiments of Schools of Philosophy"
+title: "Consistency of Emotions Within Philosophy Schools"
 author: "Christie Du"
 date: "1/27/2022"
 output: html_document
