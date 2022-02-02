@@ -2,5 +2,5 @@
 
 ### Doc folder
 
-proj1-philosophy.Rmd - Rmarkdown file for project analysis
-proj-philosophy.html - Knitted html of the project
+1. proj1-philosophy.Rmd - Rmarkdown file for project analysis
+2. proj-philosophy.html - Knitted html of the project
